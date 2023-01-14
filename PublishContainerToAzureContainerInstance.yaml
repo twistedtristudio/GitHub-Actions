@@ -1,0 +1,40 @@
+on:
+  push:
+    branches:
+      - main
+name: Build & Deploy to ACI
+jobs:
+    build-and-deploy:
+        runs-on: ubuntu-latest
+        steps:
+
+        - name: 'Checkout GitHub Action'
+          uses: actions/checkout@main
+
+        - name: 'Login to Azure'
+          uses: azure/login@v1
+          with:
+            creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+        - name: 'Build & Push'
+          uses: azure/docker-login@v1
+          with:
+            login-server: <ACR Login URL>
+            username: ${{ secrets.AZURE_USERNAME }}
+            password: ${{ secrets.AZURE_PASSWORD }}
+        - run: |
+            docker build . -t <CONTAINER NAME>:${{ github.sha }}
+            docker tag <CONTAINER NAME>:${{ github.sha }} <ACR LOGIN URL>/<CONTAINER NAME>:${{ github.sha }}
+            docker push <ACR LOGIN URL>/<CONTAINER NAME>:${{ github.sha }}
+        - name: 'Deploy to Azure Container Instances'
+          uses: 'azure/aci-deploy@v1'
+          with:
+            resource-group: <RESOURCE GROUP NAME>
+            dns-name-label: <FQDN>
+            image: <ACR LOGIN URL>/<CONTAINER NAME>:${{ github.sha }}
+            cpu: 1
+            memory: 1
+            registry-username: ${{ secrets.AZURE_USERNAME }}
+            registry-password: ${{ secrets.AZURE_PASSWORD }}
+            name: <ACI NAME>
+            location: 'central us'
